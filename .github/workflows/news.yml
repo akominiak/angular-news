@@ -24,6 +24,9 @@ jobs:
       - name: Run script
         run: node index.js
 
+      - name: Pull latest changes from remote
+        run: git pull origin main
+
       - name: Commit and push changes
         run: |
           git config --global user.name "github-actions"
