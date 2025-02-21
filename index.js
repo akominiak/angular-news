@@ -1,24 +1,56 @@
 require('dotenv').config();
-const fs = require('fs');
+const axios = require('axios');
+const { Client } = require('@notionhq/client');
 const Parser = require('rss-parser');
 
+const notion = new Client({
+  auth: process.env.NOTION_API_KEY,
+});
+const databaseId = process.env.NOTION_DATABASE_ID;
 const parser = new Parser();
+
+// Źródło RSS z newsami o Angularze
 const RSS_FEED_URL = 'https://news.google.com/rss/search?q=angular';
 
 async function fetchNews() {
   try {
     const feed = await parser.parseURL(RSS_FEED_URL);
-    const newsData = feed.items.slice(0, 5).map((item) => ({
-      title: item.title,
-      link: item.link,
-      pubDate: item.pubDate,
-    }));
-
-    fs.writeFileSync('news.json', JSON.stringify(newsData, null, 2));
-    console.log('News zapisane do news.json');
+    return feed.items.slice(0, 5);
   } catch (error) {
-    console.error('Błąd pobierania newsów:', error);
+    console.error('Error while download news', error);
+    return [];
   }
 }
 
-fetchNews();
+async function addToNotion(newsItem) {
+  const formattedDate = new Date(newsItem.pubDate).toISOString();
+
+  try {
+    await notion.pages.create({
+      parent: { database_id: databaseId },
+      properties: {
+        Title: {
+          title: [{ text: { content: newsItem.title } }],
+        },
+        URL: {
+          url: newsItem.link,
+        },
+        Published: {
+          date: { start: new Date(newsItem.pubDate).toISOString() },
+        },
+      },
+    });
+    console.log(`Dodano do Notion: ${newsItem.title}`);
+  } catch (error) {
+    console.error('Error while add to Notion', error);
+  }
+}
+
+async function main() {
+  const news = await fetchNews();
+  for (const item of news) {
+    await addToNotion(item);
+  }
+}
+
+main();
