@@ -25,7 +25,8 @@ jobs:
         run: node index.js
 
       - name: Pull latest changes from remote
-        run: git pull origin main
+        run: |
+          git pull origin main
 
       - name: Commit and push changes
         run: |
