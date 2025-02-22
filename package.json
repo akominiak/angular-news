@@ -10,9 +10,12 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@notionhq/client": "^2.2.16",
     "axios": "^1.7.9",
+    "cheerio": "^1.0.0",
     "dotenv": "^16.4.7",
     "fs": "^0.0.1-security",
+    "notion-client": "^7.1.6",
     "rss-parser": "^3.13.0"
   }
 }
