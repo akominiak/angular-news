@@ -1,55 +1,60 @@
 require('dotenv').config();
 const axios = require('axios');
+const cheerio = require('cheerio');
 const { Client } = require('@notionhq/client');
-const Parser = require('rss-parser');
 
 const notion = new Client({
   auth: process.env.NOTION_API_KEY,
 });
 const databaseId = process.env.NOTION_DATABASE_ID;
-const parser = new Parser();
 
-// Źródło RSS z newsami o Angularze
-const RSS_FEED_URL = 'https://news.google.com/rss/search?q=angular';
-
-async function fetchNews() {
+async function fetchNewsWithoutRSS() {
   try {
-    const feed = await parser.parseURL(RSS_FEED_URL);
-    return feed.items.slice(0, 5);
+    const { data } = await axios.get(process.env.SOURCE_URL);
+    const $ = cheerio.load(data);
+    const articles = [];
+    $('al-article-card').each((index, element) => {
+      const title = $(element).find('h3').text();
+      const link = $(element).find('a').attr('href');
+      articles.push({
+        title: title,
+        link: link,
+        date: new Date().toISOString(),
+      });
+    });
+    return articles.slice(0, 5);
   } catch (error) {
-    console.error('Error while download news', error);
-    return [];
+    console.error('Error loading the page:', error);
   }
 }
 
 async function addToNotion(newsItem) {
-  const formattedDate = new Date(newsItem.pubDate).toISOString();
-
   try {
     await notion.pages.create({
       parent: { database_id: databaseId },
       properties: {
         Title: {
-          title: [{ text: { content: newsItem.title } }],
+          title: [{ text: { content: newsItem.title || 'No title' } }],
         },
         URL: {
-          url: newsItem.link,
+          url: process.env.SOURCE_URL + newsItem.link,
         },
         Published: {
-          date: { start: new Date(newsItem.pubDate).toISOString() },
+          date: { start: new Date().toISOString() || null },
         },
       },
     });
-    console.log(`Dodano do Notion: ${newsItem.title}`);
   } catch (error) {
-    console.error('Error while add to Notion', error);
+    console.error('Error adding to Notion', error);
   }
 }
 
 async function main() {
-  const news = await fetchNews();
-  for (const item of news) {
-    await addToNotion(item);
+  const news = await fetchNewsWithoutRSS();
+  if (news) {
+    for (const item of news) {
+      await addToNotion(item);
+    }
   }
 }
 
